@@ -43,6 +43,11 @@ FLAKEHUB_USER_AGENT = f"mcp-nixos/{__version__}"
 # Credit: https://github.com/NuschtOS/search - Simple and fast static-page NixOS option search
 NIXVIM_META_BASE = "https://nix-community.github.io/nixvim/search/meta"
 
+# Clan options via NuschtOS search infrastructure
+# Clan is a NixOS-based project for building reproducible systems
+# https://clan.lol/ - https://docs.clan.lol/
+CLAN_META_BASE = "https://docs.clan.lol/25.11/option-search/meta"
+
 # NixOS Wiki (MediaWiki API)
 WIKI_API = "https://wiki.nixos.org/w/api.php"
 
@@ -75,4 +80,5 @@ KNOWN_SOURCES = {
     "nix-dev",
     "noogle",
     "nixhub",
+    "clan",
 }

@@ -7,6 +7,7 @@ from typing import Any
 import requests
 
 from .config import (
+    CLAN_META_BASE,
     FALLBACK_CHANNELS,
     NIXDEV_SEARCH_INDEX,
     NIXOS_API,
@@ -229,3 +230,48 @@ class NoogleCache:
 
 
 noogle_cache = NoogleCache()
+
+
+class ClanCache:
+    """Cache for Clan options fetched from NuschtOS meta JSON (paginated)."""
+
+    def __init__(self) -> None:
+        self.options: list[dict[str, Any]] | None = None
+
+    def get_options(self) -> list[dict[str, Any]]:
+        """Fetch and cache all Clan options from NuschtOS meta JSON chunks."""
+        if self.options is not None:
+            return self.options
+
+        try:
+            all_options: list[dict[str, Any]] = []
+            chunk_id = 0
+
+            while True:
+                url = f"{CLAN_META_BASE}/{chunk_id}.json"
+                resp = requests.get(url, timeout=30)
+
+                if resp.status_code == 404:
+                    break  # No more chunks
+
+                resp.raise_for_status()
+                chunk_data = resp.json()
+
+                if isinstance(chunk_data, list):
+                    all_options.extend(chunk_data)
+                else:
+                    break  # Unexpected format
+
+                chunk_id += 1
+
+            self.options = all_options
+            return self.options
+        except requests.Timeout as exc:
+            raise APIError("Timeout fetching Clan options") from exc
+        except requests.RequestException as exc:
+            raise APIError(f"Failed to fetch Clan options: {exc}") from exc
+        except Exception as exc:
+            raise APIError(f"Failed to parse Clan options: {exc}") from exc
+
+
+clan_cache = ClanCache()

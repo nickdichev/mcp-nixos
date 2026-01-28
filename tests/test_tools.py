@@ -48,13 +48,13 @@ class TestNixToolValidation:
     async def test_invalid_source(self):
         result = await nix_fn(action="search", query="test", source="invalid")
         assert "Error" in result
-        assert "nixos|home-manager|darwin|flakes|flakehub|nixvim|wiki|nix-dev|noogle" in result
+        assert "nixos|home-manager|darwin|flakes|flakehub|nixvim|wiki|nix-dev|noogle|nixhub|clan" in result
 
     @pytest.mark.asyncio
-    async def test_options_only_for_hm_darwin_nixvim(self):
+    async def test_options_only_for_hm_darwin_nixvim_clan(self):
         result = await nix_fn(action="options", source="nixos")
         assert "Error" in result
-        assert "home-manager|darwin|nixvim|noogle" in result
+        assert "home-manager|darwin|nixvim|noogle|clan" in result
 
     @pytest.mark.asyncio
     async def test_limit_too_low(self):
@@ -908,6 +908,180 @@ class TestStripHtml:
 
         html = '<span class="code">value</span>'
         assert strip_html(html) == "value"
+
+
+class TestClanSearch:
+    """Test nix tool search action for Clan source."""
+
+    @patch("mcp_nixos.server._search_clan")
+    @pytest.mark.asyncio
+    async def test_search_clan(self, mock_search):
+        mock_search.return_value = "Found clan options"
+        result = await nix_fn(action="search", query="backups", source="clan")
+        assert result == "Found clan options"
+        mock_search.assert_called_once_with("backups", 20)
+
+    @patch("mcp_nixos.server._search_clan")
+    @pytest.mark.asyncio
+    async def test_search_clan_with_limit(self, mock_search):
+        mock_search.return_value = "Found 5 options"
+        result = await nix_fn(action="search", query="core", source="clan", limit=5)
+        assert result == "Found 5 options"
+        mock_search.assert_called_once_with("core", 5)
+
+
+class TestClanInfo:
+    """Test nix tool info action for Clan source."""
+
+    @patch("mcp_nixos.server._info_clan")
+    @pytest.mark.asyncio
+    async def test_info_clan(self, mock_info):
+        mock_info.return_value = "Clan Option: clan.core.backups.providers"
+        result = await nix_fn(action="info", query="clan.core.backups.providers", source="clan")
+        assert result == "Clan Option: clan.core.backups.providers"
+        mock_info.assert_called_once_with("clan.core.backups.providers")
+
+
+class TestClanStats:
+    """Test nix tool stats action for Clan source."""
+
+    @patch("mcp_nixos.server._stats_clan")
+    @pytest.mark.asyncio
+    async def test_stats_clan(self, mock_stats):
+        mock_stats.return_value = "Clan Statistics:\n* Total options: 500"
+        result = await nix_fn(action="stats", source="clan")
+        assert result == "Clan Statistics:\n* Total options: 500"
+        mock_stats.assert_called_once()
+
+
+class TestClanOptions:
+    """Test nix tool options action for Clan source."""
+
+    @patch("mcp_nixos.server._browse_clan_options")
+    @pytest.mark.asyncio
+    async def test_browse_clan_categories(self, mock_browse):
+        mock_browse.return_value = "Clan option categories"
+        result = await nix_fn(action="options", source="clan", query="")
+        assert result == "Clan option categories"
+        mock_browse.assert_called_once_with("")
+
+    @patch("mcp_nixos.server._browse_clan_options")
+    @pytest.mark.asyncio
+    async def test_browse_clan_with_prefix(self, mock_browse):
+        mock_browse.return_value = "Clan options with prefix 'clan.core'"
+        result = await nix_fn(action="options", source="clan", query="clan.core")
+        assert result == "Clan options with prefix 'clan.core'"
+        mock_browse.assert_called_once_with("clan.core")
+
+
+@pytest.mark.unit
+class TestClanInternalFunctions:
+    """Test Clan internal functions with mocked data."""
+
+    @patch("mcp_nixos.server.clan_cache.get_options")
+    @pytest.mark.asyncio
+    async def test_search_clan_finds_matches(self, mock_get_options):
+        from mcp_nixos.server import _search_clan
+
+        mock_get_options.return_value = [
+            {"name": "clan.core.backups.providers", "type": "attrs", "description": "Configured backup providers"},
+            {"name": "clan.core.backups.providers.<name>.create", "type": "string", "description": "Command to start backup"},
+            {"name": "clan.core.deployment.requireExplicitUpdate", "type": "boolean", "description": "Skip machine update"},
+        ]
+        result = _search_clan("backups", 10)
+        assert "Found 2 Clan options" in result
+        assert "clan.core.backups.providers" in result
+        assert "clan.core.deployment.requireExplicitUpdate" not in result
+
+    @patch("mcp_nixos.server.clan_cache.get_options")
+    @pytest.mark.asyncio
+    async def test_search_clan_no_matches(self, mock_get_options):
+        from mcp_nixos.server import _search_clan
+
+        mock_get_options.return_value = [
+            {"name": "clan.core.backups.providers", "type": "attrs", "description": "Backup providers"},
+        ]
+        result = _search_clan("nonexistent", 10)
+        assert "No Clan options found" in result
+
+    @patch("mcp_nixos.server.clan_cache.get_options")
+    @pytest.mark.asyncio
+    async def test_info_clan_exact_match(self, mock_get_options):
+        from mcp_nixos.server import _info_clan
+
+        mock_get_options.return_value = [
+            {
+                "name": "clan.core.backups.providers",
+                "type": "attribute set of (submodule)",
+                "description": "<p>Configured backup providers</p>",
+                "default": "{ }",
+                "declarations": ["https://git.clan.lol/clan/clan-core/src/branch/main//nixosModules/clanCore/backups.nix"],
+            },
+        ]
+        result = _info_clan("clan.core.backups.providers")
+        assert "Clan Option: clan.core.backups.providers" in result
+        assert "Type: attribute set of (submodule)" in result
+        assert "Configured backup providers" in result
+        assert "Default: { }" in result
+
+    @patch("mcp_nixos.server.clan_cache.get_options")
+    @pytest.mark.asyncio
+    async def test_info_clan_not_found(self, mock_get_options):
+        from mcp_nixos.server import _info_clan
+
+        mock_get_options.return_value = [
+            {"name": "clan.core.backups.providers", "type": "attrs", "description": "Backup providers"},
+        ]
+        result = _info_clan("nonexistent.option")
+        assert "Error" in result
+        assert "NOT_FOUND" in result
+
+    @patch("mcp_nixos.server.clan_cache.get_options")
+    @pytest.mark.asyncio
+    async def test_stats_clan(self, mock_get_options):
+        from mcp_nixos.server import _stats_clan
+
+        mock_get_options.return_value = [
+            {"name": "clan.core.backups.providers", "type": "attrs", "description": ""},
+            {"name": "clan.core.backups.providers.<name>.create", "type": "string", "description": ""},
+            {"name": "clan.core.deployment.requireExplicitUpdate", "type": "boolean", "description": ""},
+            {"name": "clan.machines.foo.enable", "type": "boolean", "description": ""},
+        ]
+        result = _stats_clan()
+        assert "Clan Statistics:" in result
+        assert "Total options: 4" in result
+        # All options start with "clan." so there's only 1 top-level category
+        assert "Categories: 1" in result
+
+    @patch("mcp_nixos.server.clan_cache.get_options")
+    @pytest.mark.asyncio
+    async def test_browse_clan_categories(self, mock_get_options):
+        from mcp_nixos.server import _browse_clan_options
+
+        mock_get_options.return_value = [
+            {"name": "clan.core.backups.providers", "type": "attrs", "description": ""},
+            {"name": "clan.core.deployment.requireExplicitUpdate", "type": "boolean", "description": ""},
+            {"name": "clan.machines.foo.enable", "type": "boolean", "description": ""},
+        ]
+        result = _browse_clan_options("")
+        assert "Clan option categories" in result
+        assert "clan (3 options)" in result
+
+    @patch("mcp_nixos.server.clan_cache.get_options")
+    @pytest.mark.asyncio
+    async def test_browse_clan_with_prefix(self, mock_get_options):
+        from mcp_nixos.server import _browse_clan_options
+
+        mock_get_options.return_value = [
+            {"name": "clan.core.backups.providers", "type": "attrs", "description": "Backup providers"},
+            {"name": "clan.core.backups.providers.<name>.create", "type": "string", "description": "Create command"},
+            {"name": "clan.core.deployment.requireExplicitUpdate", "type": "boolean", "description": "Skip update"},
+        ]
+        result = _browse_clan_options("clan.core.backups")
+        assert "Clan options with prefix 'clan.core.backups'" in result
+        assert "clan.core.backups.providers" in result
+        assert "clan.core.backups.providers.<name>.create" in result
+        assert "clan.core.deployment" not in result
 
 
 @pytest.mark.unit

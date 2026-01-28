@@ -4,6 +4,15 @@ This module re-exports all source functions for backward compatibility.
 Each source is implemented in its own module for better organization.
 """
 
+# Clan options
+from .clan import (
+    _browse_clan_options,
+    _format_clan_option,
+    _info_clan,
+    _search_clan,
+    _stats_clan,
+)
+
 # Base functionality (channel helpers, elasticsearch, browsing)
 from .base import (
     _browse_options,
@@ -167,4 +176,10 @@ __all__ = [
     "_flake_inputs_list",
     "_flake_inputs_ls",
     "_flake_inputs_read",
+    # Clan
+    "_search_clan",
+    "_info_clan",
+    "_format_clan_option",
+    "_stats_clan",
+    "_browse_clan_options",
 ]

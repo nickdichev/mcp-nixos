@@ -22,10 +22,12 @@ from . import __version__
 # Import from our modules
 from .caches import (
     ChannelCache,
+    ClanCache,
     NixDevCache,
     NixvimCache,
     NoogleCache,
     channel_cache,
+    clan_cache,
     nixdev_cache,
     nixvim_cache,
     noogle_cache,
@@ -48,6 +50,7 @@ from .config import (
     NIXHUB_API,
     NIXOS_API,
     NIXOS_AUTH,
+    CLAN_META_BASE,
     NIXVIM_META_BASE,
     NOOGLE_API,
     WIKI_API,
@@ -55,6 +58,12 @@ from .config import (
     DocumentParseError,
 )
 from .sources import (
+    # Clan
+    _browse_clan_options,
+    _format_clan_option,
+    _info_clan,
+    _search_clan,
+    _stats_clan,
     # Nixvim
     _browse_nixvim_options,
     # Noogle
@@ -162,14 +171,14 @@ def env_bool(name: str, default: bool = False) -> bool:
 async def nix(
     action: Annotated[str, "search|info|stats|options|channels|flake-inputs|cache"],
     query: Annotated[str, "Search term, name, or prefix. For flake-inputs: input_name or input:path"] = "",
-    source: Annotated[str, "nixos|home-manager|darwin|flakes|flakehub|nixvim|wiki|nix-dev|noogle|nixhub"] = "nixos",
+    source: Annotated[str, "nixos|home-manager|darwin|flakes|flakehub|nixvim|wiki|nix-dev|noogle|nixhub|clan"] = "nixos",
     type: Annotated[str, "packages|options|programs|list|ls|read"] = "packages",
     channel: Annotated[str, "unstable|stable|25.05"] = "unstable",
     limit: Annotated[int, "1-100 (or 1-2000 for flake-inputs read)"] = 20,
     version: Annotated[str, "Version for cache action (default: latest)"] = "latest",
     system: Annotated[str, "System for cache action (e.g., x86_64-linux). Empty for all."] = "",
 ) -> str:
-    """Query NixOS, Home Manager, Darwin, flakes, FlakeHub, Nixvim, Wiki, nix.dev, Noogle, NixHub, or flake inputs."""
+    """Query NixOS, Home Manager, Darwin, flakes, FlakeHub, Nixvim, Wiki, nix.dev, Noogle, NixHub, Clan, or flake inputs."""
     # Limit validation: flake-inputs read allows up to 2000, others limited to 100
     if action == "flake-inputs" and type == "read":
         if not 1 <= limit <= MAX_LINE_LIMIT:
@@ -202,8 +211,10 @@ async def nix(
             return await asyncio.to_thread(_search_noogle, query, limit)
         elif source == "nixhub":
             return await _search_nixhub(query, limit)
+        elif source == "clan":
+            return await asyncio.to_thread(_search_clan, query, limit)
         else:
-            return error("Source must be nixos|home-manager|darwin|flakes|flakehub|nixvim|wiki|nix-dev|noogle|nixhub")
+            return error("Source must be nixos|home-manager|darwin|flakes|flakehub|nixvim|wiki|nix-dev|noogle|nixhub|clan")
 
     elif action == "info":
         if not query:
@@ -229,8 +240,10 @@ async def nix(
             return await asyncio.to_thread(_info_noogle, query)
         elif source == "nixhub":
             return await _info_nixhub(query)
+        elif source == "clan":
+            return await asyncio.to_thread(_info_clan, query)
         else:
-            return error("Source must be nixos|home-manager|darwin|flakehub|nixvim|wiki|nix-dev|noogle|nixhub")
+            return error("Source must be nixos|home-manager|darwin|flakehub|nixvim|wiki|nix-dev|noogle|nixhub|clan")
 
     elif action == "stats":
         if source == "nixos":
@@ -247,18 +260,22 @@ async def nix(
             return await asyncio.to_thread(_stats_nixvim)
         elif source == "noogle":
             return await asyncio.to_thread(_stats_noogle)
+        elif source == "clan":
+            return await asyncio.to_thread(_stats_clan)
         elif source in ["wiki", "nix-dev", "nixhub"]:
             return error(f"Stats not available for {source}")
         else:
-            return error("Source must be nixos|home-manager|darwin|flakes|flakehub|nixvim|wiki|nix-dev|noogle|nixhub")
+            return error("Source must be nixos|home-manager|darwin|flakes|flakehub|nixvim|wiki|nix-dev|noogle|nixhub|clan")
 
     elif action == "options":
-        if source not in ["home-manager", "darwin", "nixvim", "noogle"]:
-            return error("Options browsing only for home-manager|darwin|nixvim|noogle")
+        if source not in ["home-manager", "darwin", "nixvim", "noogle", "clan"]:
+            return error("Options browsing only for home-manager|darwin|nixvim|noogle|clan")
         if source == "nixvim":
             return await asyncio.to_thread(_browse_nixvim_options, query)
         if source == "noogle":
             return await asyncio.to_thread(_browse_noogle_options, query)
+        if source == "clan":
+            return await asyncio.to_thread(_browse_clan_options, query)
         return await asyncio.to_thread(_browse_options, source, query)
 
     elif action == "channels":
@@ -467,6 +484,7 @@ __all__ = [
     "FLAKEHUB_API",
     "FLAKEHUB_USER_AGENT",
     "NIXVIM_META_BASE",
+    "CLAN_META_BASE",
     "WIKI_API",
     "NIXDEV_SEARCH_INDEX",
     "NIXDEV_BASE_URL",
@@ -482,7 +500,9 @@ __all__ = [
     "NixvimCache",
     "NixDevCache",
     "NoogleCache",
+    "ClanCache",
     "channel_cache",
+    "clan_cache",
     "nixvim_cache",
     "nixdev_cache",
     "noogle_cache",
@@ -543,6 +563,12 @@ __all__ = [
     "_info_noogle",
     "_stats_noogle",
     "_browse_noogle_options",
+    # Clan functions
+    "_search_clan",
+    "_info_clan",
+    "_format_clan_option",
+    "_stats_clan",
+    "_browse_clan_options",
     # Browsing utilities
     "_list_channels",
     "_browse_options",

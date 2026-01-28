@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) and other AI agents 
 
 ## Project Overview
 
-MCP-NixOS is a Model Context Protocol (MCP) server that provides accurate, real-time information about NixOS packages, configuration options, Home Manager, nix-darwin, and flakes. It prevents AI assistants from hallucinating about NixOS package names and configurations by querying official APIs and documentation.
+MCP-NixOS is a Model Context Protocol (MCP) server that provides accurate, real-time information about NixOS packages, configuration options, Home Manager, nix-darwin, Clan, and flakes. It prevents AI assistants from hallucinating about NixOS package names and configurations by querying official APIs and documentation.
 
 ## Project Structure & Module Organization
 
@@ -45,6 +45,8 @@ Only **2 MCP tools** are exposed (consolidated from 17 in v1.0):
 - NixOS packages/options: Elasticsearch API at search.nixos.org
 - Home Manager options: HTML parsing from official docs
 - nix-darwin options: HTML parsing from official docs
+- Clan options: JSON from docs.clan.lol (NuschtOS search infrastructure)
+- Nixvim options: JSON from nix-community.github.io (NuschtOS search infrastructure)
 - Package versions: NixHub.io API (search.devbox.sh)
 - Package metadata: NixHub.io API for license, homepage, store paths
 - Binary cache status: cache.nixos.org narinfo queries
